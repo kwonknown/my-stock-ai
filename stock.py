@@ -42,26 +42,38 @@ def calculate_indicators(df):
     df['VWAP'] = (df['Close'] * df['Volume']).cumsum() / df['Volume'].cumsum()
     return df
 
-# 4. 종목 발굴 로직 (80% 이상 찾기)
+# 종목 발굴 로직 (글로벌 전수 조사 버전)
 def scan_high_probability():
-    candidates = ["PLTR", "TSLA", "NVDA", "AAPL", "005930.KS", "000660.KS", "000720.KS", "IONQ", "AMD", "MSFT"]
-    high_prob_list = []
+    # 1. 탐색 대상: 미장 테크주 + 국장 시총 상위주 (약 30~40개 샘플링)
+    global_watchlist = [
+        "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "AVGO", "COST", "NFLX", # 나스닥 대장
+        "PLTR", "IONQ", "SOUN", "AMD", "SMCI", "ARM", "U", "COIN", "MSTR", # 성장/AI 테마
+        "005930.KS", "000660.KS", "005380.KS", "035420.KS", "035720.KS", "000720.KS", # 국장 우량주
+        "000270.KS", "068270.KS", "105560.KS", "055550.KS", "005490.KS"  # 기아, 셀트리온, 금융 등
+    ]
     
-    for t in candidates:
+    high_prob_list = []
+    # 폰에서의 실행 속도를 위해 상위 30개 정도로 최적화
+    for t in global_watchlist:
         try:
-            d = yf.Ticker(t).history(period="1mo")
+            # 최근 2개월치 데이터를 가져와 지표 분석
+            d = yf.Ticker(t).history(period="2mo")
             if len(d) < 20: continue
             d = calculate_indicators(d)
             c = d.iloc[-1]
+            
+            # 승률 계산 로직 (수급, 추세, 에너지, 가격, 과열도)
             score = 0
             if float(c['Close']) > float(c['VWAP']): score += 20
             if float(c['Close']) > float(c['MA20']): score += 20
-            if float(c['RSI']) < 40: score += 20
+            if float(c['RSI']) < 45: score += 20 # 너무 과열되지 않은 상태
             if float(c['MACD']) > float(c['Signal']): score += 20
-            if float(c['Close']) < float(c['BB_High']): score += 20 # 과열 아님
+            if float(c['Close']) < float(c['BB_High']): score += 20
             
             if score >= 80:
-                high_prob_list.append({"티커": t, "승률": score})
+                # 종목의 한글 이름이나 긴 이름을 가져옴
+                full_name = yf.Ticker(t).info.get('shortName', t)
+                high_prob_list.append({"이름": full_name, "티커": t, "승률": score})
         except: continue
     return high_prob_list
 
