@@ -7,16 +7,13 @@ import requests
 # 1. 앱 설정
 st.set_page_config(page_title="kwonknown AI Master", layout="wide")
 
-# 2. 한글 검색 및 티커 자동 변환 엔진 (강화 버전)
+# 2. 지능형 티커 검색
 def get_ticker_pro(query):
     mapping = {
         "삼성전자": "005930.KS", "SK하이닉스": "000660.KS", "현대차": "005380.KS",
-        "현대건설": "000720.KS", "삼표시멘트": "023410.KS", "팔란티어": "PLTR",
-        "테슬라": "TSLA", "엔비디아": "NVDA", "아이온큐": "IONQ", "애플": "AAPL"
+        "현대건설": "000720.KS", "팔란티어": "PLTR", "테슬라": "TSLA", "엔비디아": "NVDA"
     }
     if query in mapping: return mapping[query]
-    if query.isdigit() and len(query) == 6: return f"{query}.KS"
-    
     try:
         url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&lang=ko-KR"
         headers = {'User-Agent': 'Mozilla/5.0'}
@@ -25,7 +22,7 @@ def get_ticker_pro(query):
     except: return None
     return query
 
-# 3. 보조지표 계산
+# 3. 지표 계산 함수
 def calculate_indicators(df):
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
@@ -42,56 +39,58 @@ def calculate_indicators(df):
     df['VWAP'] = (df['Close'] * df['Volume']).cumsum() / df['Volume'].cumsum()
     return df
 
-# 종목 발굴 로직 (글로벌 전수 조사 버전)
-def scan_high_probability():
-    # 1. 탐색 대상: 미장 테크주 + 국장 시총 상위주 (약 30~40개 샘플링)
+# 4. 프리미엄 종목 발굴 로직 (기술적 승률 + 재무 건전성)
+def scan_premium_stocks():
     global_watchlist = [
-        "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "AVGO", "COST", "NFLX", # 나스닥 대장
-        "PLTR", "IONQ", "SOUN", "AMD", "SMCI", "ARM", "U", "COIN", "MSTR", # 성장/AI 테마
-        "005930.KS", "000660.KS", "005380.KS", "035420.KS", "035720.KS", "000720.KS", # 국장 우량주
-        "000270.KS", "068270.KS", "105560.KS", "055550.KS", "005490.KS"  # 기아, 셀트리온, 금융 등
+        "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "AVGO", "COST", "NFLX",
+        "PLTR", "IONQ", "AMD", "005930.KS", "000660.KS", "005380.KS", "000720.KS", "035420.KS"
     ]
     
-    high_prob_list = []
-    # 폰에서의 실행 속도를 위해 상위 30개 정도로 최적화
+    results = []
     for t in global_watchlist:
         try:
-            # 최근 2개월치 데이터를 가져와 지표 분석
-            d = yf.Ticker(t).history(period="2mo")
+            stock = yf.Ticker(t)
+            d = stock.history(period="2mo")
             if len(d) < 20: continue
             d = calculate_indicators(d)
             c = d.iloc[-1]
+            info = stock.info
             
-            # 승률 계산 로직 (수급, 추세, 에너지, 가격, 과열도)
+            # 기술 점수 (80점 이상 목표)
             score = 0
             if float(c['Close']) > float(c['VWAP']): score += 20
             if float(c['Close']) > float(c['MA20']): score += 20
-            if float(c['RSI']) < 45: score += 20 # 너무 과열되지 않은 상태
+            if 30 < float(c['RSI']) < 60: score += 20  # 너무 과열되지 않은 상승 초입
             if float(c['MACD']) > float(c['Signal']): score += 20
             if float(c['Close']) < float(c['BB_High']): score += 20
             
+            # 재무 필터 (ROE 10% 이상, 부채 150% 미만 우선)
+            roe = info.get('returnOnEquity', 0) * 100
+            debt = info.get('debtToEquity', 0)
+            
             if score >= 80:
-                # 종목의 한글 이름이나 긴 이름을 가져옴
-                full_name = yf.Ticker(t).info.get('shortName', t)
-                high_prob_list.append({"이름": full_name, "티커": t, "승률": score})
+                results.append({"티커": t, "승률": score, "ROE": roe, "부채": debt})
         except: continue
-    return high_prob_list
+    return results
 
-# --- 사이드바 ---
-st.sidebar.header("🔍 분석 설정")
-search_query = st.sidebar.text_input("종목명 또는 티커", "삼성전자")
-my_avg_price = st.sidebar.number_input("나의 매수 평단가 (0이면 미적용)", value=0.0)
+# --- 사이드바 및 레이아웃 ---
+st.sidebar.header("🔍 분석 & 발굴")
+search_query = st.sidebar.text_input("종목명 입력", "삼성전자")
+my_avg_price = st.sidebar.number_input("나의 매수 평단가", value=0.0)
 ticker = get_ticker_pro(search_query)
 
-if st.sidebar.button("💎 승률 80% 이상 종목 발굴"):
+if st.sidebar.button("💎 우량주 중심 80% 승목 발굴"):
     with st.sidebar:
-        with st.spinner('시장 탐색 중...'):
-            results = scan_high_probability()
-            if results:
-                for r in results: st.success(f"📍 {r['티커']} (승률: {r['승률']}%)")
-            else: st.warning("현재 승률 80% 이상인 종목이 없습니다.")
+        with st.spinner('재무 및 차트 전수 조사 중...'):
+            premium_list = scan_premium_stocks()
+            if premium_list:
+                for p in premium_list:
+                    color = "🟢" if p['ROE'] > 10 and p['부채'] < 100 else "🟡"
+                    st.write(f"{color} **{p['티커']}** (승률:{p['승률']}%)")
+                    st.caption(f"ROE: {p['ROE']:.1f}% / 부채: {p['부채']:.1f}%")
+            else: st.warning("조건에 맞는 우량주가 없습니다.")
 
-# --- 메인 분석 ---
+# --- 메인 분석 화면 ---
 st.title("🛡️ kwonknown AI 투자 전략실 Master")
 
 if ticker:
@@ -105,27 +104,28 @@ if ticker:
             curr_price = float(curr['Close'])
             vwap_val = float(curr['VWAP'])
             
-            # 상단 메트릭 구성 (현재가 추가)
+            # 상단 메트릭
             st.header(f"{info.get('longName', search_query)} ({ticker})")
-            c1, c2, c3, c4 = st.columns(4)
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("📈 현재가", f"{curr_price:,.2f}")
             
-            # 승률 계산
             buy_score = 0
-            guides = []
-            if curr_price > vwap_val: buy_score += 20; guides.append("✅ **수급:** 세력 평단 지지 중")
-            if curr_price > float(curr['MA20']): buy_score += 20; guides.append("✅ **추세:** 20일선 위 안착")
-            if float(curr['RSI']) < 40: buy_score += 20; guides.append("✅ **심리:** 저평가/과매도 구간")
-            if float(curr['MACD']) > float(curr['Signal']): buy_score += 20; guides.append("✅ **에너지:** 골든크로스 발생")
-            if curr_price < float(curr['BB_High']): buy_score += 20; guides.append("✅ **위치:** 추가 상승 여력 충분")
+            if curr_price > vwap_val: buy_score += 20
+            if curr_price > float(curr['MA20']): buy_score += 20
+            if 30 < float(curr['RSI']) < 60: buy_score += 20
+            if float(curr['MACD']) > float(curr['Signal']): buy_score += 20
+            if curr_price < float(curr['BB_High']): buy_score += 20
 
-            c1.metric("📈 현재가", f"{curr_price:,.2f}")
-            c2.metric("🟢 매수 승률", f"{buy_score}%")
+            m2.metric("🟢 매수 승률", f"{buy_score}%")
+            
             if my_avg_price > 0:
                 p_rate = ((curr_price - my_avg_price) / my_avg_price) * 100
-                c3.metric("💰 나의 수익률", f"{p_rate:+.2f}%")
+                m3.metric("💰 나의 수익률", f"{p_rate:+.2f}%")
             else:
-                c3.metric("🎯 세력 평단", f"{vwap_val:,.2f}")
-            c4.metric("📊 ROE", f"{info.get('returnOnEquity', 0)*100:.1f}%")
+                m3.metric("🎯 세력 평단", f"{vwap_val:,.2f}")
+            
+            roe_val = info.get('returnOnEquity', 0) * 100
+            m4.metric("📊 ROE", f"{roe_val:.1f}%")
 
             # 차트 및 가이드
             col1, col2 = st.columns([2, 1])
@@ -138,11 +138,16 @@ if ticker:
                 st.plotly_chart(fig, use_container_width=True)
                 
             with col2:
-                st.subheader("📝 상세 분석 가이드")
-                for g in guides: st.write(g)
-                if buy_score >= 80: st.success("💎 **강력 추천: 승률 80% 이상의 황금 구간!**")
-                elif buy_score >= 60: st.info("🔭 관망하며 분할 매수 고려")
-                else: st.error("⚠️ 위험 관리 및 관망 구간")
+                st.subheader("📝 지속 가능성 진단")
+                if roe_val > 10: st.success(f"✅ **이익 지속성:** ROE가 {roe_val:.1f}%로 우량합니다.")
+                else: st.warning(f"⚠️ **수익성 저하:** ROE가 낮아 장기 투자에 주의가 필요합니다.")
+                
+                st.write("---")
+                if my_avg_price > 0:
+                    if p_rate > 5 and float(curr['RSI']) > 65:
+                        st.warning("🔥 **스윙 타이밍:** 수익권이며 지표가 과열되었습니다. 익절 후 재매수 대기!")
+                    elif curr_price <= vwap_val * 1.02:
+                        st.success("💎 **수량 확대:** 세력 평단 근처입니다. 지지 확인 후 추가 매수 가능!")
 
     except Exception as e:
-        st.error(f"데이터를 불러올 수 없습니다. 티커를 확인해 주세요: {e}")
+        st.error(f"데이터 분석 오류: {e}")
