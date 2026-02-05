@@ -4,25 +4,22 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 
-# 1. 앱 설정 및 강한 캐시 적용 (호출 한도 보호)
+# 1. 앱 설정 및 세션 상태 (종목 이동용)
 st.set_page_config(page_title="kwonknown AI Master", layout="wide")
 
 if 'selected_stock' not in st.session_state:
     st.session_state['selected_stock'] = "삼성전자"
 
-# 캐시 시간을 10분으로 늘려 API 서버 부하를 줄임
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300) # 5분간 데이터 유지하여 한도 보호
 def get_stock_data_final(ticker):
     try:
         stock = yf.Ticker(ticker)
-        # 히스토리만 가져와서 호출 횟수 최소화
         df = stock.history(period="1y")
         if df.empty: return None, None
         return df, stock.info
-    except:
-        return None, None
+    except: return None, None
 
-# 2. 통합 지표 계산 및 보수적 승률
+# 2. 통합 지표 및 승률 계산
 def analyze_stock(df, info):
     if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
     df['MA20'] = df['Close'].rolling(window=20).mean()
@@ -36,8 +33,8 @@ def analyze_stock(df, info):
     cp, vwap, ma = float(curr['Close']), float(curr['VWAP']), float(curr['MA20'])
     rsi, roe = float(curr['RSI']), info.get('returnOnEquity', 0) * 100
     
-    # 엄격한 추세 필터
-    if cp < vwap and cp < ma: score = 35
+    # 엄격한 보수적 필터
+    if cp < vwap and cp < ma: score = 40
     else:
         score = 70
         if cp > vwap: score += 10
@@ -45,15 +42,39 @@ def analyze_stock(df, info):
         if 40 < rsi < 65: score += 10
     return df, min(score, 100)
 
-# --- 사이드바 ---
+# --- 사이드바: 종목 발굴 엔진 복구 ---
 st.sidebar.header("📡 글로벌 마켓 엔진")
-input_q = st.sidebar.text_input("종목명/티커", value=st.session_state['selected_stock'])
+input_q = st.sidebar.text_input("종목명 직접 입력", value=st.session_state['selected_stock'])
 
 if st.sidebar.button("🔄 데이터 강제 갱신"):
     st.cache_data.clear()
     st.rerun()
 
-# --- 메인 대시보드 (우리가 원했던 모든 기능 포함) ---
+# [복구된 추천 엔진]
+sectors = {
+    "AI/반도체": ["NVDA", "AMD", "005930.KS", "000660.KS"],
+    "빅테크": ["AAPL", "MSFT", "PLTR", "TSLA"],
+    "우량주": ["214450.KQ", "000720.KS", "035420.KS"]
+}
+
+st.sidebar.write("---")
+st.sidebar.subheader("💎 실시간 우량주 추천")
+if st.sidebar.button("🚀 전 섹터 전수 조사 시작"):
+    with st.sidebar:
+        for sec, tks in sectors.items():
+            st.markdown(f"**[{sec}]**")
+            for t in tks:
+                try:
+                    d_raw, s_info = get_stock_data_final(t)
+                    if d_raw is not None:
+                        _, sc = analyze_stock(d_raw, s_info)
+                        if sc >= 75: # 75% 이상만 노출
+                            if st.button(f"✅ {t} ({sc}%)", key=f"rec_{t}"):
+                                st.session_state['selected_stock'] = t
+                                st.rerun()
+                except: continue
+
+# --- 메인 대시보드 ---
 st.title("🛡️ kwonknown AI 투자 전략실 Master")
 
 if input_q != st.session_state['selected_stock']:
@@ -78,18 +99,19 @@ if data_raw is not None:
     with col1:
         fig = go.Figure(data=[go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], name='주가')])
         fig.add_trace(go.Scatter(x=data.index, y=data['VWAP'], line=dict(color='purple', dash='dot'), name='세력평단'))
-        fig.update_layout(height=500, xaxis_rangeslider_visible=False)
+        fig.update_layout(height=550, xaxis_rangeslider_visible=False)
         st.plotly_chart(fig, use_container_width=True)
         
     with col2:
-        st.subheader("🔍 핵심 지표 및 가이드")
-        st.write(f"{'✅' if cp > vwap else '❌'} **수급:** 세력 평단 {'위 지지' if cp > vwap else '아래 저항'}")
-        st.write(f"{'✅' if roe > 10 else '⚠️'} **지속성:** ROE {roe:.1f}% 우량주")
+        st.subheader("🔍 상세 지표 분석")
+        st.write(f"{'✅' if cp > vwap else '❌'} **수급:** 세력 평단 {'위' if cp > vwap else '아래'}")
+        st.write(f"{'✅' if roe > 10 else '⚠️'} **지속성:** ROE {roe:.1f}%")
         st.write(f"{'✅' if 35 < float(curr['RSI']) < 65 else '⚠️'} **심리:** RSI {float(curr['RSI']):.1f}")
         st.write("---")
-        if sc >= 80: st.success("💎 **강력 매수 구간**")
-        elif sc >= 60: st.info("⚖️ **분할 매수/관망**")
-        else: st.error("⏳ **진입 금지/위험**")
-        st.caption(f"마지막 동기화: {datetime.now().strftime('%H:%M:%S')}")
+        st.subheader("📝 투자 가이드")
+        if sc >= 80: st.success("🚀 강력 매수 구간")
+        elif sc >= 60: st.info("⚖️ 관망 및 분할 대응")
+        else: st.error("⏳ 진입 금지/위험")
+        st.caption(f"동기화: {datetime.now().strftime('%H:%M:%S')}")
 else:
-    st.warning("⚠️ API 호출 한도 초과 상태입니다. 약 2분 뒤 '데이터 강제 갱신'을 눌러주세요.")
+    st.warning("⚠️ API 한도 초과 상태입니다. 잠시 후 새로고침 해주세요.")
