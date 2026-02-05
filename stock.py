@@ -4,20 +4,28 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 
-# 1. 앱 기본 설정
+# 1. 앱 설정
 st.set_page_config(page_title="kwonknown AI Master", layout="wide")
 
-# 2. 실시간 티커 검색 엔진
-def search_ticker(query):
+# 2. 한글 검색 및 티커 자동 변환 엔진 (강화 버전)
+def get_ticker_pro(query):
+    mapping = {
+        "삼성전자": "005930.KS", "SK하이닉스": "000660.KS", "현대차": "005380.KS",
+        "현대건설": "000720.KS", "삼표시멘트": "023410.KS", "팔란티어": "PLTR",
+        "테슬라": "TSLA", "엔비디아": "NVDA", "아이온큐": "IONQ", "애플": "AAPL"
+    }
+    if query in mapping: return mapping[query]
+    if query.isdigit() and len(query) == 6: return f"{query}.KS"
+    
     try:
         url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&lang=ko-KR"
         headers = {'User-Agent': 'Mozilla/5.0'}
         res = requests.get(url, headers=headers).json()
         if res['quotes']: return res['quotes'][0]['symbol']
     except: return None
-    return None
+    return query
 
-# 3. 보조지표 및 VWAP 계산
+# 3. 보조지표 계산
 def calculate_indicators(df):
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
@@ -30,33 +38,48 @@ def calculate_indicators(df):
     exp2 = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = exp1 - exp2
     df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-    df['BB_std'] = df['Close'].rolling(window=20).std()
-    df['BB_High'] = df['MA20'] + (df['BB_std'] * 2)
-    df['BB_Low'] = df['MA20'] - (df['BB_std'] * 2)
+    df['BB_High'] = df['MA20'] + (df['Close'].rolling(window=20).std() * 2)
     df['VWAP'] = (df['Close'] * df['Volume']).cumsum() / df['Volume'].cumsum()
     return df
 
-# --- 사이드바: 검색 및 평단가 입력 ---
+# 4. 종목 발굴 로직 (80% 이상 찾기)
+def scan_high_probability():
+    candidates = ["PLTR", "TSLA", "NVDA", "AAPL", "005930.KS", "000660.KS", "000720.KS", "IONQ", "AMD", "MSFT"]
+    high_prob_list = []
+    
+    for t in candidates:
+        try:
+            d = yf.Ticker(t).history(period="1mo")
+            if len(d) < 20: continue
+            d = calculate_indicators(d)
+            c = d.iloc[-1]
+            score = 0
+            if float(c['Close']) > float(c['VWAP']): score += 20
+            if float(c['Close']) > float(c['MA20']): score += 20
+            if float(c['RSI']) < 40: score += 20
+            if float(c['MACD']) > float(c['Signal']): score += 20
+            if float(c['Close']) < float(c['BB_High']): score += 20 # 과열 아님
+            
+            if score >= 80:
+                high_prob_list.append({"티커": t, "승률": score})
+        except: continue
+    return high_prob_list
+
+# --- 사이드바 ---
 st.sidebar.header("🔍 분석 설정")
 search_query = st.sidebar.text_input("종목명 또는 티커", "삼성전자")
 my_avg_price = st.sidebar.number_input("나의 매수 평단가 (0이면 미적용)", value=0.0)
+ticker = get_ticker_pro(search_query)
 
-ticker = search_ticker(search_query)
+if st.sidebar.button("💎 승률 80% 이상 종목 발굴"):
+    with st.sidebar:
+        with st.spinner('시장 탐색 중...'):
+            results = scan_high_probability()
+            if results:
+                for r in results: st.success(f"📍 {r['티커']} (승률: {r['승률']}%)")
+            else: st.warning("현재 승률 80% 이상인 종목이 없습니다.")
 
-# 즐겨찾기 로직
-if 'history' not in st.session_state: st.session_state['history'] = []
-if ticker and search_query not in st.session_state['history']:
-    st.session_state['history'].insert(0, search_query)
-    st.session_state['history'] = st.session_state['history'][:5]
-
-st.sidebar.write("---")
-st.sidebar.subheader("⭐ 최근 본 종목")
-for h in st.session_state['history']:
-    if st.sidebar.button(f"📍 {h}", key=f"hist_{h}"):
-        search_query = h
-        ticker = search_ticker(h)
-
-# --- 메인 대시보드 ---
+# --- 메인 분석 ---
 st.title("🛡️ kwonknown AI 투자 전략실 Master")
 
 if ticker:
@@ -69,104 +92,45 @@ if ticker:
             curr = data.iloc[-1]
             curr_price = float(curr['Close'])
             vwap_val = float(curr['VWAP'])
-            ma20_val = float(curr['MA20'])
-            rsi_val = float(curr['RSI'])
             
-            # 상단 핵심 지표
+            # 상단 메트릭 구성 (현재가 추가)
             st.header(f"{info.get('longName', search_query)} ({ticker})")
             c1, c2, c3, c4 = st.columns(4)
             
+            # 승률 계산
             buy_score = 0
             guides = []
-            
-            # 1. 수급 (VWAP)
-            if curr_price > vwap_val:
-                buy_score += 20
-                guides.append("✅ **수급(VWAP):** 세력 평단 위에서 지지받는 중입니다.")
-            else:
-                guides.append("❌ **수급(VWAP):** 세력 평단 아래입니다. 저항을 주의하세요.")
-            
-            # 2. 추세 (MA20)
-            if curr_price > ma20_val:
-                buy_score += 20
-                guides.append("✅ **추세:** 20일선 위에 안착하여 심리가 살아있습니다.")
-            else:
-                guides.append("❌ **추세:** 20일선 아래입니다. 돌파가 필요한 시점입니다.")
-            
-            # 3. 과열도 (RSI)
-            if rsi_val < 35:
-                buy_score += 20
-                guides.append(f"✅ **과열도(RSI:{rsi_val:.1f}):** 바닥권 반등이 임박했습니다.")
-            elif rsi_val > 65:
-                guides.append(f"❌ **과열도(RSI:{rsi_val:.1f}):** 고점권입니다. 조심하세요.")
-            else:
-                guides.append(f"ℹ️ **과열도(RSI:{rsi_val:.1f}):** 적정 수준입니다.")
-            
-            # 4. 에너지 (MACD)
-            if float(curr['MACD']) > float(curr['Signal']):
-                buy_score += 20
-                guides.append("✅ **에너지:** 상승 에너지가 하락을 압도합니다.")
-            else:
-                guides.append("❌ **에너지:** 에너지가 약화되고 있습니다.")
-            
-            # 5. 가격 (Bollinger Bands)
-            if curr_price < float(curr['BB_Low']):
-                buy_score += 20
-                guides.append("✅ **가격:** 밴드 하단 이탈로 반등 확률이 높습니다.")
-            else:
-                guides.append("ℹ️ **가격:** 박스권 내 안정적인 흐름입니다.")
+            if curr_price > vwap_val: buy_score += 20; guides.append("✅ **수급:** 세력 평단 지지 중")
+            if curr_price > float(curr['MA20']): buy_score += 20; guides.append("✅ **추세:** 20일선 위 안착")
+            if float(curr['RSI']) < 40: buy_score += 20; guides.append("✅ **심리:** 저평가/과매도 구간")
+            if float(curr['MACD']) > float(curr['Signal']): buy_score += 20; guides.append("✅ **에너지:** 골든크로스 발생")
+            if curr_price < float(curr['BB_High']): buy_score += 20; guides.append("✅ **위치:** 추가 상승 여력 충분")
 
-            # 지표 메트릭 표시
+            c1.metric("📈 현재가", f"{curr_price:,.2f}")
+            c2.metric("🟢 매수 승률", f"{buy_score}%")
             if my_avg_price > 0:
-                profit_rate = ((curr_price - my_avg_price) / my_avg_price) * 100
-                c1.metric("🟢 나의 수익률", f"{profit_rate:+.2f}%")
+                p_rate = ((curr_price - my_avg_price) / my_avg_price) * 100
+                c3.metric("💰 나의 수익률", f"{p_rate:+.2f}%")
             else:
-                c1.metric("🟢 매수 승률", f"{buy_score}%")
-            
-            c2.metric("🟠 하락 위험도", f"{100-buy_score}%")
-            c3.metric("🎯 세력 평단(VWAP)", f"{vwap_val:,.2f}")
-            c4.metric("📈 ROE", f"{info.get('returnOnEquity', 0)*100:.1f}%")
+                c3.metric("🎯 세력 평단", f"{vwap_val:,.2f}")
+            c4.metric("📊 ROE", f"{info.get('returnOnEquity', 0)*100:.1f}%")
 
-            # 차트 및 가이드 레이아웃
+            # 차트 및 가이드
             col1, col2 = st.columns([2, 1])
             with col1:
-                fig = go.Figure()
-                fig.add_trace(go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], name='주가'))
-                fig.add_trace(go.Scatter(x=data.index, y=data['VWAP'], line=dict(color='purple', dash='dot'), name='세력평단(VWAP)'))
-                fig.add_trace(go.Scatter(x=data.index, y=data['MA20'], line=dict(color='orange'), name='20일선'))
-                
-                # 내 평단가 지시선 추가
+                fig = go.Figure(data=[go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], name='주가')])
+                fig.add_trace(go.Scatter(x=data.index, y=data['VWAP'], line=dict(color='purple', dash='dot'), name='세력평단'))
                 if my_avg_price > 0:
-                    fig.add_hline(y=my_avg_price, line_dash="solid", line_color="green", annotation_text="나의 평단")
-                
-                fig.add_annotation(x=data.index[-1], y=curr_price, text=f"현재가:{curr_price:,.0f}", showarrow=True)
-                fig.update_layout(height=600, xaxis_rangeslider_visible=False)
+                    fig.add_hline(y=my_avg_price, line_dash="solid", line_color="green", annotation_text="내 평단")
+                fig.update_layout(height=500, xaxis_rangeslider_visible=False)
                 st.plotly_chart(fig, use_container_width=True)
                 
             with col2:
-                st.subheader("📝 애널리스트 상세 가이드")
-                # 5대 지표 가이드 출력
-                for g in guides: st.markdown(g)
-                
-                # kwonknown 전용 익절 가이드 추가
-                if my_avg_price > 0:
-                    st.write("---")
-                    st.subheader("💡 kwonknown 스윙 팁")
-                    profit_rate = ((curr_price - my_avg_price) / my_avg_price) * 100
-                    if profit_rate > 3 and rsi_val > 65:
-                        st.warning("⚠️ **수익 실현 기회:** 수익권이며 지표가 과열되었습니다. 일부 익절 후 저점 재매수를 고려하세요!")
-                    elif profit_rate < 0 and curr_price <= vwap_val * 1.02:
-                        st.success("💎 **추가 매수 기회:** 평단 아래지만 세력 평단 근처입니다. 물타기/추매 적기일 수 있습니다.")
-                
-                st.write("---")
-                if buy_score >= 80: st.success(f"💎 **강력 매수 구간 (승률 {buy_score}%)**")
-                elif buy_score <= 20: st.error(f"⚠️ **위험 관리 구간**")
-                else: st.info("⚖️ **중립/관망 구간**")
-                
-                st.write("---")
-                st.subheader("📊 기업 체력")
-                st.write(f"**부채비율:** {info.get('debtToEquity', 0):.1f}%")
-                st.write(f"**시가총액:** {info.get('marketCap', 0)/1e12:.2f}T")
+                st.subheader("📝 상세 분석 가이드")
+                for g in guides: st.write(g)
+                if buy_score >= 80: st.success("💎 **강력 추천: 승률 80% 이상의 황금 구간!**")
+                elif buy_score >= 60: st.info("🔭 관망하며 분할 매수 고려")
+                else: st.error("⚠️ 위험 관리 및 관망 구간")
 
     except Exception as e:
-        st.error(f"분석 중 오류가 발생했습니다: {e}")
+        st.error(f"데이터를 불러올 수 없습니다. 티커를 확인해 주세요: {e}")
