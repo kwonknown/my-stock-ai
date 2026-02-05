@@ -41,7 +41,7 @@ def calculate_indicators(df):
     df['VWAP'] = (df['Close'] * df['Volume']).cumsum() / df['Volume'].cumsum()
     return df
 
-# 4. 프리미엄 종목 발굴 로직
+# 4. 프리미엄 종목 발굴 (재무 필터 포함)
 def scan_premium_stocks():
     watchlist = ["AAPL", "NVDA", "TSLA", "PLTR", "005930.KS", "000660.KS", "000720.KS", "AMD", "IONQ"]
     results = []
@@ -93,46 +93,30 @@ if ticker:
             vwap_val = float(curr['VWAP'])
             ma20_val = float(curr['MA20'])
             rsi_val = float(curr['RSI'])
+            roe_val = info.get('returnOnEquity', 0) * 100
             
             # 상단 메트릭
             st.header(f"{info.get('longName', search_query)} ({ticker})")
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("📈 현재가", f"{curr_price:,.2f}")
             
-            # 5대 지표 및 승률 계산
             buy_score = 0
             guides = []
-            if curr_price > vwap_val:
-                buy_score += 20
-                guides.append("✅ **수급(VWAP):** 세력 평단 위에서 지지받는 중입니다.")
-            else:
-                guides.append("❌ **수급(VWAP):** 세력 평단 아래입니다. 저항을 주의하세요.")
+            if curr_price > vwap_val: buy_score += 20; guides.append("✅ **수급(VWAP):** 세력 평단 위 지지 중")
+            else: guides.append("❌ **수급(VWAP):** 세력 평단 아래 (저항 주의)")
             
-            if curr_price > ma20_val:
-                buy_score += 20
-                guides.append("✅ **추세:** 20일선 위에 안착하여 심리가 살아있습니다.")
-            else:
-                guides.append("❌ **추세:** 20일선 아래입니다. 돌파가 필요합니다.")
+            if curr_price > ma20_val: buy_score += 20; guides.append("✅ **추세:** 20일선 위 안착 (심리 양호)")
+            else: guides.append("❌ **추세:** 20일선 아래 (상향 돌파 필요)")
             
-            if rsi_val < 35:
-                buy_score += 20
-                guides.append(f"✅ **과열도(RSI:{rsi_val:.1f}):** 바닥권 반등이 임박했습니다.")
-            elif rsi_val > 65:
-                guides.append(f"❌ **과열도(RSI:{rsi_val:.1f}):** 고점권입니다. 조심하세요.")
-            else:
-                guides.append(f"ℹ️ **과열도(RSI:{rsi_val:.1f}):** 적정 수준입니다.")
+            if rsi_val < 35: buy_score += 20; guides.append(f"✅ **과열도(RSI:{rsi_val:.1f}):** 바닥권 반등 임박")
+            elif rsi_val > 65: guides.append(f"❌ **과열도(RSI:{rsi_val:.1f}):** 고점권 (조정 주의)")
+            else: guides.append(f"ℹ️ **과열도(RSI:{rsi_val:.1f}):** 적정 심리 상태")
             
-            if float(curr['MACD']) > float(curr['Signal']):
-                buy_score += 20
-                guides.append("✅ **에너지:** 상승 에너지가 하락을 압도합니다.")
-            else:
-                guides.append("❌ **에너지:** 에너지가 약화되고 있습니다.")
+            if float(curr['MACD']) > float(curr['Signal']): buy_score += 20; guides.append("✅ **에너지:** 상승 에너지 우위")
+            else: guides.append("❌ **에너지:** 하락/약화 에너지 우위")
             
-            if curr_price < float(curr['BB_Low']):
-                buy_score += 20
-                guides.append("✅ **가격:** 밴드 하단 이탈로 반등 확률이 높습니다.")
-            else:
-                guides.append("ℹ️ **가격:** 박스권 내 안정적인 흐름입니다.")
+            if curr_price < float(curr['BB_Low']): buy_score += 20; guides.append("✅ **가격:** 밴드 하단 (반등 확률 높음)")
+            else: guides.append("ℹ️ **가격:** 박스권 내 안정적 흐름")
 
             m2.metric("🟢 매수 승률", f"{buy_score}%")
             if my_avg_price > 0:
@@ -140,11 +124,8 @@ if ticker:
                 m3.metric("💰 나의 수익률", f"{p_rate:+.2f}%")
             else:
                 m3.metric("🎯 세력 평단", f"{vwap_val:,.2f}")
-            
-            roe_val = info.get('returnOnEquity', 0) * 100
             m4.metric("📊 ROE", f"{roe_val:.1f}%")
 
-            # 차트 및 우측 상세 분석
             col1, col2 = st.columns([2, 1])
             with col1:
                 fig = go.Figure(data=[go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], name='주가')])
@@ -156,22 +137,35 @@ if ticker:
                 st.plotly_chart(fig, use_container_width=True)
                 
             with col2:
-                st.subheader("📝 애널리스트 상세 분석")
-                for g in guides: st.markdown(g)
-                st.write("---")
-                st.subheader("💡 kwonknown 스윙 가이드")
-                if my_avg_price > 0:
-                    if p_rate > 5 and rsi_val > 65:
-                        st.warning("🔥 **익절 타이밍:** 수익권이며 지표가 과열되었습니다.")
-                    elif curr_price <= vwap_val * 1.02:
-                        st.success("💎 **재매수 구간:** 세력 평단 근처입니다. 수량 확대를 고려하세요.")
-                
-                st.write("---")
-                if buy_score >= 80: st.success(f"💎 **강력 매수 (승률 {buy_score}%)**")
-                elif buy_score <= 20: st.error(f"⚠️ **위험 관리 (관망)**")
-                else: st.info("⚖️ **중립/보류 구간**")
+                # 1. 지속 가능성 진단 (ROE 기반)
+                st.subheader("🔍 지속 가능성 진단")
+                if roe_val > 10:
+                    st.success(f"💎 **이익 지속성 상급:** ROE가 {roe_val:.1f}%로 자본 효율성이 매우 높습니다. 일시적 반등이 아닌 펀더멘탈에 기반한 성장이 가능합니다.")
+                elif roe_val > 0:
+                    st.info(f"⚖️ **이익 지속성 보통:** 완만한 수익을 내고 있습니다. 차트 흐름에 따라 방어적인 대응이 필요합니다.")
+                else:
+                    st.error(f"⚠️ **이익 지속성 하급:** 현재 적자 상태이거나 수익성이 낮습니다. 기술적 반등 시 빠른 탈출을 고려하세요.")
 
                 st.write("---")
+                # 2. 애널리스트 상세 지표
+                st.subheader("📝 상세 지표 분석")
+                for g in guides: st.markdown(g)
+
+                st.write("---")
+                # 3. kwonknown 스윙 가이드 & 판단
+                st.subheader("💡 투자 판단 & 가이드")
+                if buy_score >= 80: st.success(f"🚀 **강력 매수 시점 (승률 {buy_score}%)**")
+                elif buy_score <= 20: st.error(f"⏳ **관망/위험 관리 시점**")
+                else: st.info("⚖️ **중립/보류 구간**")
+
+                if my_avg_price > 0:
+                    if p_rate > 5 and rsi_val > 65:
+                        st.warning("🔥 **스윙 팁:** 수익권+과열 상태입니다. 일부 익절 후 저점 재매수를 권장합니다!")
+                    elif curr_price <= vwap_val * 1.02:
+                        st.success("💎 **스윙 팁:** 세력 평단 지지 구간입니다. 수량 늘리기에 적합합니다.")
+
+                st.write("---")
+                # 4. 재무 현황 상세
                 st.subheader("📊 기업 재무 현황")
                 st.write(f"**부채비율:** {info.get('debtToEquity', 0):.1f}%")
                 st.write(f"**시가총액:** {info.get('marketCap', 0)/1e12:.2f}T")
