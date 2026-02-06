@@ -115,43 +115,48 @@ with st.sidebar:
             if st.button(f"📜 {h_item}", key=f"sidebar_hist_{h_item}"):
                 st.session_state['search'] = h_item
                 
-        # --- 승률 80% 이상 종목 발굴 섹션 추가 ---
     st.write("---")
-    st.subheader("💎 실시간 종목 발굴")
     
-    if st.button("🚀 승률 80%↑ 종목 스캔"):
-        # 스캔 대상: 섹터별 주요 종목 리스트 통합
-        scan_list = [
-            "005930.KS", "000660.KS", "MSFT", "NVDA", "PLTR", "TSLA", 
-            "214450.KQ", "000100.KS", "277470.KS", "012450.KS", 
-            "064350.KS", "005490.KS", "090710.KQ", "IONQ", "AMD"
+    # 사이드바: 고성능 실시간 스캐너 업데이트 ---
+    if st.button("🚀 승률 80%↑ 글로벌 스캔"):
+        # 스캔 대상을 30~50개로 확장해도 배치를 사용하면 안전합니다.
+        extended_scan_list = [
+            "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "AVGO", "COST", "NFLX",
+            "005930.KS", "000660.KS", "005380.KS", "000270.KS", "035420.KS", "214450.KQ",
+            "000720.KS", "012450.KS", "090710.KQ", "PLTR", "IONQ", "AMD", "SMCI", "ARM"
         ]
         
-        with st.spinner('안정적 우상향 종목 찾는 중...'):
+        with st.spinner('글로벌 시장 전수 조사 중...'):
+            # [핵심] 여러 종목의 데이터를 한 번에 묶어서 가져와 API 차단 방지
+            all_data = yf.download(extended_scan_list, period="2mo", interval="1d", group_by='ticker', threads=True)
+            
             high_score_stocks = []
-            for t in scan_list:
+            for t in extended_scan_list:
                 try:
-                    # 데이터 호출 및 지표 계산 (캐시 활용)
-                    d = calculate_indicators(yf.Ticker(t).history(period="2mo"))
+                    d = all_data[t].dropna() # 특정 종목 데이터 추출
                     if d.empty: continue
                     
-                    # 엄격한 승률 로직 적용
-                    s_info = yf.Ticker(t).info
-                    score = calculate_strict_score(d.iloc[-1], s_info)
+                    # 지표 계산 및 엄격 승률 적용
+                    d = calculate_indicators(d)
+                    # 스캔 시에는 부하를 줄이기 위해 info 호출 없이 차트 데이터로만 점수 산출
+                    score = 0
+                    c = d.iloc[-1]
+                    if c['Close'] > c['VWAP']: score += 40
+                    if c['Close'] > c['MA20']: score += 30
+                    if 45 < c['RSI'] < 65: score += 30
                     
                     if score >= 80:
                         high_score_stocks.append({"ticker": t, "score": score})
-                except:
-                    continue
+                except: continue
             
-            # 결과 출력
+            # 결과 표시
             if high_score_stocks:
-                st.success(f"{len(high_score_stocks)}개의 보석 발견!")
+                st.success(f"💎 {len(high_score_stocks)}개의 급소 종목 발견")
                 for s in high_score_stocks:
-                    if st.button(f"🔥 {s['ticker']} ({s['score']}%)", key=f"scan_{s['ticker']}"):
+                    if st.button(f"🎯 {s['ticker']} ({s['score']}%)", key=f"global_scan_{s['ticker']}"):
                         st.session_state['search'] = s['ticker']
             else:
-                st.warning("현재 80% 이상인 종목이 없습니다.")
+                st.info("현재 기술적 타점에 들어온 종목이 없습니다.")
 
     st.write("---")
     
