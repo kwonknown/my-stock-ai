@@ -5,37 +5,36 @@ import plotly.graph_objects as go
 import requests
 from datetime import datetime
 
-# 1. 앱 설정 및 캐시 전략 (야후/구글 하이브리드 최적화)
+# 1. 앱 설정 및 캐시 강제 분리 (안전장치)
 st.set_page_config(page_title="kwonknown AI Master", layout="wide")
 
-# [최적화] API 호출을 분리하여 부하 분산
-@st.cache_data(ttl=300) # 분봉 데이터는 5분간 재사용
-def fetch_fast_data(ticker, period, interval):
-    return yf.Ticker(ticker).history(period=period, interval=interval)
+# [핵심] 데이터 호출 실패 시 빈 값이라도 돌려주어 화면 멈춤 방지
+@st.cache_data(ttl=300) 
+def safe_fetch_data(ticker, period, interval):
+    try:
+        return yf.Ticker(ticker).history(period=period, interval=interval)
+    except:
+        return pd.DataFrame()
 
-@st.cache_data(ttl=3600) # 무거운 기업 정보(ROE 등)는 1시간에 한 번만
-def fetch_heavy_info(ticker):
-    stock = yf.Ticker(ticker)
-    return stock.info
+@st.cache_data(ttl=3600)
+def safe_fetch_info(ticker):
+    try:
+        return yf.Ticker(ticker).info
+    except:
+        return {}
 
-# 2. 지능형 실시간 검색 (검색 실패 시에도 대비)
+# 2. 지능형 실시간 검색 (오류 방지형)
 @st.cache_data(ttl=86400)
 def hybrid_search(query):
+    if not query: return None
     try:
         url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&lang=ko-KR&quotesCount=1"
-        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}).json()
-        if res['quotes']: return res['quotes'][0]['symbol']
-    except: return query
+        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5).json()
+        if res.get('quotes'): return res['quotes'][0]['symbol']
+    except: pass
     return query
 
-# 3. 보조지표 계산 로직 (경량화)
-def add_tech_indicators(df):
-    if df.empty: return df
-    df['MA20'] = df['Close'].rolling(window=20).mean()
-    df['VWAP'] = (df['Close'] * df['Volume']).cumsum() / df['Volume'].cumsum()
-    return df
-
-# --- 사이드바: 퀵 메뉴 & 히스토리 ---
+# --- 사이드바: 슬림 디자인 ---
 with st.sidebar:
     st.header("🚀 퀵 메뉴")
     c1, c2 = st.columns(2)
@@ -45,51 +44,47 @@ with st.sidebar:
     if c2.button("휴림로봇"): st.session_state['search'] = "090710.KQ"
     
     st.write("---")
-    search_input = st.text_input("종목/티커 검색", value=st.session_state.get('search', "현대건설"))
-    my_price = st.number_input("나의 매수 평단가", value=0.0)
-    # API 보호를 위한 분석 실행 버튼
-    is_ready = st.button("📊 분석 실행 / 갱신")
+    search_input = st.text_input("종목명/티커", value=st.session_state.get('search', ""))
+    my_price = st.number_input("나의 평단", value=0.0)
+    # [강력 조치] 무반응 방지를 위해 버튼 클릭 시에만 실행되도록 완전 고정
+    btn_label = "📊 분석 시작" if not st.session_state.get('loading') else "⏳ 분석 중..."
+    is_ready = st.button(btn_label)
 
 # --- 메인 분석 화면 ---
-ticker = hybrid_search(search_input)
-
-if ticker and is_ready:
-    try:
-        # 4. 차트 주기 선택 (가로 길이를 줄여 작게 배치)
+if is_ready and search_input:
+    ticker = hybrid_search(search_input)
+    if ticker:
+        # 차트 주기 슬림 드롭다운
         int_labels = {"1분": "1m", "5분": "5m", "10분": "10m", "1일": "1d"}
         per_labels = {"1분": "1d", "5분": "5d", "10분": "5d", "1일": "1y"}
         
-        #         col_small, _ = st.columns([1, 4]) # 1:4 비율로 작게 만듦
-        with col_small:
-            selected_int = st.selectbox("⏱️ 주기", list(int_labels.keys()), index=3)
+        col_s, _ = st.columns([1.5, 4])
+        with col_s:
+            sel_int = st.selectbox("⏱️ 주기 선택", list(int_labels.keys()), index=3)
 
-        # 데이터 호출
-        with st.spinner('데이터 동기화 중...'):
-            data = fetch_fast_data(ticker, per_labels[selected_int], int_labels[selected_int])
-            info = fetch_heavy_info(ticker)
+        with st.spinner('서버 연결 중...'):
+            data = safe_fetch_data(ticker, per_labels[sel_int], int_labels[sel_int])
+            info = safe_fetch_info(ticker)
         
         if not data.empty:
-            data = add_tech_indicators(data)
+            st.title(f"🛡️ {info.get('longName', search_input)}")
+            
+            # 메트릭 표시 (데이터 없을 시 0 처리)
             curr_p = data['Close'].iloc[-1]
-            vwap_p = data['VWAP'].iloc[-1]
+            roe = info.get('returnOnEquity', 0) * 100
             
-            st.title(f"🛡️ {info.get('longName', search_input)} ({ticker})")
-            
-            # 메트릭 대시보드
-            m1, m2, m3, m4 = st.columns(4)
+            m1, m2, m3 = st.columns(3)
             m1.metric("📈 현재가", f"{curr_p:,.2f}")
-            m2.metric("🟢 매수 승률", f"{'확인 중'}") # 승률 로직은 이전 코드 유지
-            m3.metric("🎯 세력 평단", f"{vwap_p:,.2f}")
-            m4.metric("📊 ROE", f"{info.get('returnOnEquity', 0)*100:.1f}%")
+            m2.metric("🎯 ROE", f"{roe:.1f}%")
+            m3.metric("📊 부채", f"{info.get('debtToEquity', 0):.1f}%")
 
-            # 차트 시각화
-            fig = go.Figure(data=[go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], name='주가')])
-            fig.add_trace(go.Scatter(x=data.index, y=data['VWAP'], line=dict(color='purple', dash='dot'), name='세력평단'))
-            if my_price > 0: fig.add_hline(y=my_price, line_dash="solid", line_color="green", annotation_text="내 평단")
-            fig.update_layout(height=450, margin=dict(l=10, r=10, t=10, b=10), xaxis_rangeslider_visible=False)
+            # 차트
+            fig = go.Figure(data=[go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'])])
+            fig.update_layout(height=400, margin=dict(l=0, r=0, t=0, b=0), xaxis_rangeslider_visible=False)
             st.plotly_chart(fig, use_container_width=True)
             
-            st.caption(f"⏰ 데이터 수신: {datetime.now().strftime('%H:%M:%S')} (API 하이브리드 보호 모드)")
-
-    except Exception as e:
-        st.error(f"요청이 초과되었습니다. 1분만 기다려 주세요. ☕ ({e})")
+            st.success(f"✅ 분석 완료 ({datetime.now().strftime('%H:%M:%S')})")
+        else:
+            st.error("앗! 데이터 수신에 실패했습니다. 1분만 쉬었다가 다시 눌러주세요.")
+else:
+    st.info("왼쪽 검색창에 종목을 넣고 [📊 분석 시작] 버튼을 눌러주세요! 😊")
