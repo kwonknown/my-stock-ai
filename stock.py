@@ -115,7 +115,46 @@ with st.sidebar:
             if st.button(f"📜 {h_item}", key=f"sidebar_hist_{h_item}"):
                 st.session_state['search'] = h_item
                 
+        # --- 승률 80% 이상 종목 발굴 섹션 추가 ---
     st.write("---")
+    st.subheader("💎 실시간 종목 발굴")
+    
+    if st.button("🚀 승률 80%↑ 종목 스캔"):
+        # 스캔 대상: 섹터별 주요 종목 리스트 통합
+        scan_list = [
+            "005930.KS", "000660.KS", "MSFT", "NVDA", "PLTR", "TSLA", 
+            "214450.KQ", "000100.KS", "277470.KS", "012450.KS", 
+            "064350.KS", "005490.KS", "090710.KQ", "IONQ", "AMD"
+        ]
+        
+        with st.spinner('안정적 우상향 종목 찾는 중...'):
+            high_score_stocks = []
+            for t in scan_list:
+                try:
+                    # 데이터 호출 및 지표 계산 (캐시 활용)
+                    d = calculate_indicators(yf.Ticker(t).history(period="2mo"))
+                    if d.empty: continue
+                    
+                    # 엄격한 승률 로직 적용
+                    s_info = yf.Ticker(t).info
+                    score = calculate_strict_score(d.iloc[-1], s_info)
+                    
+                    if score >= 80:
+                        high_score_stocks.append({"ticker": t, "score": score})
+                except:
+                    continue
+            
+            # 결과 출력
+            if high_score_stocks:
+                st.success(f"{len(high_score_stocks)}개의 보석 발견!")
+                for s in high_score_stocks:
+                    if st.button(f"🔥 {s['ticker']} ({s['score']}%)", key=f"scan_{s['ticker']}"):
+                        st.session_state['search'] = s['ticker']
+            else:
+                st.warning("현재 80% 이상인 종목이 없습니다.")
+
+    st.write("---")
+    
     search_q = st.text_input("종목명/티커 직접 입력", value=st.session_state.get('search', ""))
     my_price = st.number_input("나의 평단가", value=0.0)
     is_go = st.button("📊 분석 실행")
