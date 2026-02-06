@@ -95,7 +95,34 @@ with st.sidebar:
 
     st.write("---")
     if st.button("💎 승률 80%↑ 글로벌 보석 발굴"):
-        scan_list = ["AAPL", "MSFT", "NVDA", "TSLA", "PLTR", "LLY", "NVO", "VRT", "005930.KS", "000660.KS", "214450.KQ"]
+                # [초강력 확장판] 글로벌 전수 조사 리스트 (약 70여 종목)
+        scan_list = [
+            # 1. 미국 빅테크 & AI 반도체 (The Mag 7 & Semi)
+            "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", 
+            "AVGO", "AMD", "MU", "INTC", "QCOM", "AMAT", "LRCX", "ARM", "SMCI", "ASML",
+            
+            # 2. 소프트웨어 & 성장주 (SaaS & AI Services)
+            "PLTR", "ADBE", "CRM", "NOW", "SNOW", "NET", "PANW", "IONQ", "SOUN",
+            
+            # 3. 비만치료제 & 헬스케어 (GLP-1 & Biotech)
+            "LLY", "NVO", "VRTX", "AMGN", "ISRG", "PFE", "MRK",
+            
+            # 4. 미국 인프라 & 소비재 (Infrastructure & Consumer)
+            "VRT", "COST", "NFLX", "WMT", "KO", "PEP", "XOM", "CAT", "GE", "UBER", "ABNB",
+            
+            # 5. 국내 반도체 & IT (K-Semicon & Tech)
+            "005930.KS", "000660.KS", "000990.KS", "042700.KQ", "035420.KS", "035720.KS",
+            
+            # 6. 국내 바이오 & 뷰티 (K-Bio & Aesthetic) - 파마리서치 등
+            "214450.KQ", "000100.KS", "068270.KS", "277470.KS", "090430.KS", "192080.KS",
+            
+            # 7. 국내 방산 & 자동차 & 로봇 (K-Defense, Auto & Robot)
+            "012450.KS", "064350.KS", "005380.KS", "000270.KS", "277810.KQ", "090710.KQ", "040910.KQ",
+            
+            # 8. 국내 자원 & 금융 (K-Resource & Finance)
+            "005490.KS", "010130.KS", "055550.KS", "105560.KS", "000720.KS"
+        ]
+
         with st.spinner('전수 조사 중...'):
             all_d = yf.download(scan_list, period="1mo", interval="1d", group_by='ticker', threads=True)
             for t in scan_list:
