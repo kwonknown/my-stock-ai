@@ -107,34 +107,34 @@ if is_go and search_q:
             m3.metric("🎯 세력 평단", f"{data['VWAP'].iloc[-1]:,.2f}")
             m4.metric("📊 ROE", f"{roe:.1f}%")
 
+            # 메인 분석 영역 (차트 + 가이드)
             col_left, col_right = st.columns([2, 1])
             with col_left:
                 fig = go.Figure(data=[go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'])])
                 fig.add_trace(go.Scatter(x=data.index, y=data['VWAP'], line=dict(color='purple', dash='dot'), name='세력평단'))
-                if my_price > 0: fig.add_hline(y=my_price, line_dash="solid", line_color="green", annotation_text="내 평단")
+                if my_price > 0: 
+                    fig.add_hline(y=my_price, line_dash="solid", line_color="green", annotation_text="내 평단")
                 fig.update_layout(height=450, margin=dict(l=0, r=0, t=10, b=0), xaxis_rangeslider_visible=False)
                 st.plotly_chart(fig, use_container_width=True)
             
             with col_right:
-                # 1. 지속 가능성 진단
                 st.subheader("🔍 지속 가능성")
                 if roe > 10: st.success(f"💎 **이익 지속성 상급:** ROE {roe:.1f}%")
                 else: st.info(f"⚖️ **이익 지속성 보통:** 재무 건전성 확인 필요")
                 
-                # 2. 5대 지표 분석
                 st.subheader("📝 상세 지표 분석")
                 for g in guides: st.markdown(g)
                 
-                # 3. 매수매도 전망 & 가이드
                 st.write("---")
                 st.subheader("💡 투자 판단")
                 if buy_score >= 80: st.success("🚀 **강력 매수 구간**")
                 elif buy_score <= 40: st.error("⚠️ **관망/위험 관리 시점**")
                 else: st.info("⚖️ **중립 구간**")
-                
-                if my_price > 0:
-                    p_rate = ((curr_p - my_price) / my_price) * 100
-                    if p_rate > 5: st.warning("🔥 **스윙 팁:** 수익권 익절 고려")
-                    elif curr_p <= data['VWAP'].iloc[-1] * 1.02: st.success("💎 **스윙 팁:** 세력 평단 지지 매수")
-
-    except Exception as e: st.error(f"오류: {e}")
+            
+            st.success(f"✅ 분석 완료 ({datetime.now().strftime('%H:%M:%S')})")
+        else:
+            st.error("앗! 데이터 수신에 실패했습니다. 1분만 쉬었다가 다시 눌러주세요.")
+    else:
+        st.error("종목 티커를 찾을 수 없습니다. 정확한 이름을 입력해주세요.")
+else:
+    st.info("왼쪽 검색창에 종목을 넣고 [📊 분석 시작] 버튼을 눌러주세요! 😊")
