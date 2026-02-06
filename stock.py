@@ -8,6 +8,12 @@ from datetime import datetime
 # 1. 앱 설정 및 스마트 캐싱 (API 보호 모드)
 st.set_page_config(page_title="kwonknown AI Master", layout="wide")
 
+# 'history'와 'search' 상태가 없으면 미리 만들어줍니다.
+if 'history' not in st.session_state:
+    st.session_state['history'] = []
+if 'search' not in st.session_state:
+    st.session_state['search'] = ""
+
 @st.cache_data(ttl=600) # 주가 데이터 10분 보관
 def fetch_stock_data(ticker, period, interval):
     try:
