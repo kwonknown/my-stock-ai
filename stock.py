@@ -64,18 +64,54 @@ def calculate_all_metrics(df, info):
     
     return df, min(max(score, 0), 100), guides
 
-# --- 사이드바 ---
+# --- 사이드바: 섹터별 퀵 메뉴 & 히스토리 ---
 with st.sidebar:
-    st.header("🚀 퀵 메뉴")
-    c1, c2 = st.columns(2)
-    if c1.button("엔비디아"): st.session_state['search'] = "NVDA"
-    if c1.button("팔란티어"): st.session_state['search'] = "PLTR"
-    if c2.button("파마리서치"): st.session_state['search'] = "214450.KQ"
-    if c2.button("휴림로봇"): st.session_state['search'] = "090710.KQ"
-    
+    st.header("🚀 섹터별 주요 종목")
+
+    # 1. 반도체 & 빅테크
+    with st.expander("💻 반도체 & 빅테크", expanded=True):
+        c1, c2 = st.columns(2)
+        if c1.button("삼성전자"): st.session_state['search'] = "005930.KS"
+        if c1.button("SK하이닉스"): st.session_state['search'] = "000660.KS"
+        if c2.button("MSFT"): st.session_state['search'] = "MSFT"
+        if c2.button("엔비디아"): st.session_state['search'] = "NVDA"
+
+    # 2. 바이오 & 뷰티
+    with st.expander("🧪 바이오 & 💄 뷰티", expanded=False):
+        c1, c2 = st.columns(2)
+        if c1.button("파마리서치"): st.session_state['search'] = "214450.KQ"
+        if c1.button("유한양행"): st.session_state['search'] = "000100.KS"
+        if c2.button("에이피알"): st.session_state['search'] = "277470.KS"
+        if c2.button("아모레퍼시픽"): st.session_state['search'] = "090430.KS"
+
+    # 3. 방산 & 광산(자원)
+    with st.expander("🛡️ 방산 & ⛏️ 광산", expanded=False):
+        c1, c2 = st.columns(2)
+        if c1.button("한화에어로"): st.session_state['search'] = "012450.KS"
+        if c1.button("현대로템"): st.session_state['search'] = "064350.KS"
+        if c2.button("포스코홀딩스"): st.session_state['search'] = "005490.KS"
+        if c2.button("리튬아메리카"): st.session_state['search'] = "LAC"
+
+    # 4. 로봇 & 기타
+    with st.expander("🤖 로봇 & 💡 성장주", expanded=False):
+        c1, c2 = st.columns(2)
+        if c1.button("휴림로봇"): st.session_state['search'] = "090710.KQ"
+        if c1.button("레인보우로보"): st.session_state['search'] = "277810.KQ"
+        if c2.button("팔란티어"): st.session_state['search'] = "PLTR"
+        if c2.button("테슬라"): st.session_state['search'] = "TSLA"
+
     st.write("---")
-    search_q = st.text_input("종목명/티커", value=st.session_state.get('search', ""))
-    my_price = st.number_input("나의 평단", value=0.0)
+    
+    # 최근 검색 히스토리 유지
+    if st.session_state['history']:
+        st.subheader("🕒 히스토리 (최근 5)")
+        for h_item in st.session_state['history']:
+            if st.button(f"📜 {h_item}", key=f"sidebar_hist_{h_item}"):
+                st.session_state['search'] = h_item
+                
+    st.write("---")
+    search_q = st.text_input("종목명/티커 직접 입력", value=st.session_state.get('search', ""))
+    my_price = st.number_input("나의 평단가", value=0.0)
     is_go = st.button("📊 분석 실행")
 
 # --- 메인 화면 ---
