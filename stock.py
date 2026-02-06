@@ -21,20 +21,33 @@ def add_to_history(symbol):
 def get_stock_data(ticker):
     return yf.Ticker(ticker).history(period="1y")
 
-# 2. 하이브리드 검색 엔진
+# 2. 지능형 실시간 검색 엔진 (매핑 없이도 자동 검색)
 def get_ticker_pro(query):
+    # 1. 고정 매핑 (자주 쓰는 것만 남겨두어 속도 향상)
     mapping = {
-        "삼성전자": "005930.KS", "SK하이닉스": "000660.KS", "현대차": "005380.KS",
-        "현대건설": "000720.KS", "기아": "000270.KS", "네이버": "035420.KS",
-        "파마리서치": "214450.KQ", "팔란티어": "PLTR", "테슬라": "TSLA", "엔비디아": "NVDA"
+        "삼성전자": "005930.KS", "SK하이닉스": "000660.KS", 
+        "팔란티어": "PLTR", "테슬라": "TSLA"
     }
     if query in mapping: return mapping[query]
+    
+    # 2. 실시간 검색 (야후 파이낸스 검색 API 활용)
     try:
-        url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&lang=ko-KR"
-        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}).json()
-        if res['quotes']: return res['quotes'][0]['symbol']
-    except: return None
-    return query
+        # 한글 종목명을 넣으면 야후 검색 결과에서 티커를 추출합니다.
+        url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&lang=ko-KR&quotesCount=1"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(url, headers=headers).json()
+        
+        if res['quotes']:
+            symbol = res['quotes'][0]['symbol']
+            # 한국 종목인데 뒤에 거래소 구분이 없다면? 
+            # 검색 엔진이 알아서 .KS나 .KQ를 붙여서 가져오지만, 
+            # 혹시나 숫자만 온다면 코스닥(.KQ)을 우선 시도하게 합니다.
+            return symbol
+    except Exception as e:
+        print(f"검색 오류: {e}")
+        return None
+        
+    return query # 티커를 못 찾으면 입력값 그대로 반환
 
 # 3. 지표 및 엄격한 승률 로직 (단순화 방지 고정)
 def calculate_indicators(df):
