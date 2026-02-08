@@ -80,77 +80,88 @@ def calculate_flexible_score(df, info):
 with st.sidebar:
     st.header("🚀 미래 산업 섹터")
     with st.expander("💻 AI 반도체 & 인프라", expanded=True):
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(2)
         if c1.button("하이닉스"): st.session_state['search'] = "000660.KS"; st.rerun()
         if c1.button("엔비디아"): st.session_state['search'] = "NVDA"; st.rerun()
+        if c2.button("삼성전자"): st.session_state['search'] = "005930.KS"; st.rerun()
         if c2.button("버티브(VRT)"): st.session_state['search'] = "VRT"; st.rerun()
-        if c2.button("마이크론"): st.session_state['search'] = "MU"; st.rerun()
-
+        if c3.button("마이크론"): st.session_state['search'] = "MU"; st.rerun()
+        if c3.button("한미반도체"): st.session_state['search'] = "042700.KQ"; st.rerun()
+        if c4.button("브로드컴"): st.session_state['search'] = "AVGO"; st.rerun()
+        if c4.button("휴림로"): st.session_state['search'] = "090710.KQ"; st.rerun()
+    
     with st.expander("🧪 바이오 & 비만치료"):
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(2)
         if c1.button("파마리서치"): st.session_state['search'] = "214450.KQ"; st.rerun()
         if c1.button("일라이릴리"): st.session_state['search'] = "LLY"; st.rerun()
         if c2.button("노보노디스크"): st.session_state['search'] = "NVO"; st.rerun()
         if c2.button("유한양행"): st.session_state['search'] = "000100.KS"; st.rerun()
+        if c3.button("리가켐바이오"): st.session_state['search'] = "141080.KQ"; st.rerun()
+        if c3.button("바이킹(VKTX)"): st.session_state['search'] = "VKTX"; st.rerun()
 
     with st.expander("🚗 미래차 & 모빌리티"):
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(2)
         if c1.button("테슬라"): st.session_state['search'] = "TSLA"; st.rerun()
         if c1.button("현대차"): st.session_state['search'] = "005380.KS"; st.rerun()
         if c2.button("기아"): st.session_state['search'] = "000270.KS"; st.rerun()
         if c2.button("리비안"): st.session_state['search'] = "RIVN"; st.rerun()
+        if c3.button("에코머티"): st.session_state['search'] = "450080.KS"; st.rerun()
+        if c3.button("우버"): st.session_state['search'] = "UBER"; st.rerun()
 
     with st.expander("🛡️ 방산 & 로봇 & 우주"):
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(2)
         if c1.button("한화에어로"): st.session_state['search'] = "012450.KS"; st.rerun()
         if c1.button("레인보우로보"): st.session_state['search'] = "277810.KQ"; st.rerun()
         if c2.button("LIG넥스원"): st.session_state['search'] = "079550.KS"; st.rerun()
         if c2.button("아이온큐(IONQ)"): st.session_state['search'] = "IONQ"; st.rerun()
+        if c3.button("현대로템"): st.session_state['search'] = "064350.KS"; st.rerun()
+        if c3.button("두산로보"): st.session_state['search'] = "454910.KS"; st.rerun()
     
     st.write("---")
-    if st.button("💎 글로벌 정예 보석 발굴 (TOP 10)"):
+    if st.button("💎 국내/외 정예 보석 TOP 10 발굴"):
+        # 전체 리스트 (섹터 확장형)
         scan_list = [
             "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "AVGO", "AMD", "MU", 
-            "INTC", "QCOM", "AMAT", "LRCX", "ARM", "SMCI", "ASML", "PLTR", "ADBE", "CRM", 
-            "NOW", "SNOW", "NET", "PANW", "IONQ", "SOUN", "LLY", "NVO", "VRTX", "AMGN", 
-            "ISRG", "PFE", "MRK", "VRT", "COST", "NFLX", "WMT", "KO", "PEP", "XOM", 
-            "CAT", "GE", "UBER", "ABNB", "005930.KS", "000660.KS", "000990.KS", "042700.KQ", 
+            "PLTR", "LLY", "NVO", "VRT", "005930.KS", "000660.KS", "000990.KS", "042700.KQ", 
             "035420.KS", "035720.KS", "214450.KQ", "000100.KS", "068270.KS", "277470.KS", 
             "090430.KS", "192080.KS", "012450.KS", "064350.KS", "005380.KS", "000270.KS", 
-            "277810.KQ", "090710.KQ", "040910.KQ", "005490.KS", "010130.KS", "055550.KS", 
-            "105560.KS", "000720.KS"
+            "277810.KQ", "079550.KS", "055550.KS", "105560.KS", "000720.KS"
         ]
 
-        with st.spinner('전 세계 시장에서 보석 찾는 중...'):
-            # 한꺼번에 다운로드하여 속도 향상
+        with st.spinner('국내/외 시장 통합 스캔 중...'):
             all_d = yf.download(scan_list, period="1mo", interval="1d", group_by='ticker', threads=True)
             
-            found_stocks = []
+            kr_stocks = []
+            us_stocks = []
+            
             for t in scan_list:
                 try:
-                    # 데이터 정리 및 지표 계산
                     d = calculate_indicators(all_d[t].dropna())
                     if not d.empty:
                         score, _ = calculate_flexible_score(d, {})
                         if score >= 80:
-                            found_stocks.append({'ticker': t, 'score': score})
+                            data = {'ticker': t, 'score': score}
+                            if ".KS" in t or ".KQ" in t: kr_stocks.append(data)
+                            else: us_stocks.append(data)
                 except: continue
             
-            # [핵심] 승률 높은 순으로 정렬 후 상위 10개만 추출
-            top_10 = sorted(found_stocks, key=lambda x: x['score'], reverse=True)[:10]
+            # [핵심] 각각 상위 5개씩 추출하여 10개 구성
+            top_kr = sorted(kr_stocks, key=lambda x: x['score'], reverse=True)[:5]
+            top_us = sorted(us_stocks, key=lambda x: x['score'], reverse=True)[:5]
+            final_top_10 = top_kr + top_us
             
             st.write("---")
-            if top_10:
-                st.subheader("🎯 오늘의 정예 보석 (TOP 10)")
-                for item in top_10:
-                    t_code = item['ticker']
-                    t_score = item['score']
-                    # 클릭 시 해당 종목으로 바로 이동하는 버튼
-                    if st.button(f"🚀 {t_code} (승률: {t_score}%)", key=f"top_{t_code}"):
-                        st.session_state['search'] = t_code
-                        st.rerun()
+            if final_top_10:
+                st.subheader("🎯 오늘의 정예 보석 (국내 5 + 해외 5)")
+                # 2열로 배치하여 가독성 향상
+                cols = st.columns(2)
+                for idx, item in enumerate(final_top_10):
+                    with cols[idx % 2]:
+                        if st.button(f"🚀 {item['ticker']} ({item['score']}%)", key=f"top_{item['ticker']}"):
+                            st.session_state['search'] = item['ticker']
+                            st.rerun()
             else:
-                st.info("현재 승률 80% 이상의 종목이 없습니다. 관망을 권장합니다.")
+                st.info("조건에 맞는 보석이 없습니다. 시장이 냉각기일 수 있습니다.")
 
     st.write("---")
     if st.session_state['history']:
