@@ -170,22 +170,32 @@ with st.sidebar:
             if st.button(f"📜 {h}", key=f"h_{h}"):
                 st.session_state['search'] = h; st.rerun()
 
+    # --- [수정된 사이드바 하단 제어부] ---
     st.write("---")
-    # [해결책] 검색창의 value를 세션 상태와 직접 연결합니다.
-    search_q = st.text_input("종목명/티커 입력", 
-                             value=st.session_state['search'], 
-                             key="ticker_input_field")
+    
+    # [핵심] 사용자가 검색창에 직접 입력할 때 사용하는 텍스트 상자
+    # key를 부여하여 세션 상태와 직접 연결합니다.
+    manual_input = st.text_input("종목명/티커 입력", key="input_field")
 
-    # 검색창에 직접 입력했을 때도 세션 상태를 업데이트합니다.
-    if search_q != st.session_state['search']:
-        st.session_state['search'] = search_q
+    # [중요] 버튼 클릭이나 검색창 입력 등 모든 경로의 '최종 검색어'를 결정하는 로직
+    if manual_input and manual_input != st.session_state['search']:
+        st.session_state['search'] = manual_input
         st.rerun()
 
     my_p = st.number_input("나의 평단가", value=0.0)
     
     if st.button("📊 분석 실행"):
-        # 이미 위에서 업데이트되지만, 명시적으로 한 번 더 실행합니다.
         st.rerun()
+
+# --- [메인 화면 분석 로직 시작] ---
+# 모든 버튼과 검색창의 결과는 결국 이 한 줄로 모입니다.
+ticker = st.session_state['search']
+
+if ticker:
+    # 종목 히스토리 업데이트 로직
+    if not st.session_state['history'] or ticker != st.session_state['history'][0]:
+        st.session_state['history'].insert(0, ticker)
+        st.session_state['history'] = st.session_state['history'][:5]
 
 # --- 메인 화면 로직 시작 ---
 ticker = st.session_state['search'] # 항상 세션 상태의 최신 티커를 사용합니다.
