@@ -162,11 +162,32 @@ with st.sidebar:
                 st.rerun() # 이 명령어가 즉시 분석 화면으로 전환시킵니다.
 
     st.write("---")
+    # 1. 최근 본 종목 리스트 (중복 키 방어 로직)
     if st.session_state['history']:
         st.subheader("🕒 최근 본 종목")
+        # set을 사용하여 중복 종목 출력 방지
+        unique_history = []
         for h in st.session_state['history']:
-            if st.button(f"📜 {h}", key=f"h_{h}"):
-                st.session_state['search'] = h; st.rerun()
+            if h not in unique_history:
+                unique_history.append(h)
+        
+        for h in unique_history:
+            # key값에 'hist_' 접두사를 붙여 다른 버튼과 절대 겹치지 않게 합니다.
+            if st.button(f"📜 {h}", key=f"hist_btn_{h}", use_container_width=True):
+                st.session_state['search'] = h
+                st.rerun()
+
+    st.write("---")
+    # 2. 직접 검색 및 분석 실행부
+    # 여기서도 key를 고유하게 설정합니다.
+    manual_input = st.text_input("종목명/티커 입력", key="sidebar_manual_search")
+    
+    my_p = st.number_input("나의 평단가", value=0.0, key="sidebar_my_price")
+    
+    if st.button("📊 분석 실행", key="run_analysis_btn"):
+        if manual_input:
+            st.session_state['search'] = manual_input
+        st.rerun()
 
     # --- [수정된 사이드바 하단 제어부] ---
     st.write("---")
