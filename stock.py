@@ -258,9 +258,51 @@ if ticker:
             if buy_score >= 80: st.success("🚀 **강력 매수 구간 (승률 80%↑)**")
             elif buy_score >= 60: st.warning("⚖️ **분할 매수 구간**")
             else: st.error("⏳ **관망/위험 관리 시점**")
-            
+
             if my_p > 0:
                 p_rate = ((curr_p - my_p) / my_p) * 100
                 if p_rate > 5 and float(data['RSI'].iloc[-1]) > 65:
                     st.warning("🔥 **스윙 팁:** 수익권+과열! 분할 익절 후 눌림목 재매수 고려")
+
+            # --- [신규 기능: 1-2시간 기대 수익 및 리스크 시뮬레이터] ---
+            st.write("---")
+            st.subheader("🎯 1-2시간 기대 수익 및 리스크")
+
+            try:
+           # 최근 변동성 계산 (최근 10개 봉의 고가-저가 평균)
+           recent_volatility = (data['High'] - data['Low']).tail(10).mean()
+    
+          # 1. 목표 주가 산출 (세력 평단 돌파 시나리오 또는 추세 지속)
+            # 현재가가 평단 위라면 변동성의 1.5배 상단을 목표로, 아래라면 평단 회복을 목표로 설정
+           if curr_p > data['VWAP'].iloc[-1]:
+               target_p = curr_p + (recent_volatility * 1.5)
+            else:
+                target_p = data['VWAP'].iloc[-1]
+    
+            # 2. 손절/리스크 가격 산출 (주요 지지선 기준)
+            # 20일선이나 세력 평단 중 더 가까운 하단 지지선을 리스크 라인으로 설정
+            risk_p = min(data['MA20'].iloc[-1], data['VWAP'].iloc[-1])
+            if curr_p < risk_p: # 이미 이탈 중이라면 최근 저가를 리스크로 설정
+                risk_p = data['Low'].tail(5).min()
+
+            # 3. 기대 수익률 및 손실률 계산
+            expected_gain = ((target_p - curr_p) / curr_p) * 100
+            expected_loss = ((risk_p - curr_p) / curr_p) * 100
+    
+            # 시각화 (Metric 사용)
+            c_target, c_risk = st.columns(2)
+            c_target.metric("🚀 목표 주가 (1-2h)", f"{target_p:,.0f}", f"{expected_gain:+.2f}%")
+            c_risk.metric("⚠️ 리스크 라인", f"{risk_p:,.0f}", f"{expected_loss:+.2f}%", delta_color="inverse")
+    
+            # 손익비 분석 가이드
+            reward_risk_ratio = abs(expected_gain / expected_loss) if expected_loss != 0 else 0
+            if reward_risk_ratio > 1.5:
+                st.success(f"⚖️ **손익비 우수:** 손실 대비 기대 수익이 {reward_risk_ratio:.1f}배 높습니다. 진입 유리!")
+            else:
+                st.warning(f"⚖️ **손익비 부족:** 기대 수익 대비 리스크가 큽니다. 짧은 대응 권장.")
+
+            except Exception as e:
+            st.caption("변동성 데이터 부족으로 시뮬레이션을 실행할 수 없습니다.")
+
+            st.write("---")
             st.caption(f"동기화 완료: {datetime.now().strftime('%H:%M:%S')}")
