@@ -189,23 +189,6 @@ with st.sidebar:
             st.session_state['search'] = manual_input
         st.rerun()
 
-    # --- [수정된 사이드바 하단 제어부] ---
-    st.write("---")
-    
-    # [핵심] 사용자가 검색창에 직접 입력할 때 사용하는 텍스트 상자
-    # key를 부여하여 세션 상태와 직접 연결합니다.
-    manual_input = st.text_input("종목명/티커 입력", key="input_field")
-
-    # [중요] 버튼 클릭이나 검색창 입력 등 모든 경로의 '최종 검색어'를 결정하는 로직
-    if manual_input and manual_input != st.session_state['search']:
-        st.session_state['search'] = manual_input
-        st.rerun()
-
-    my_p = st.number_input("나의 평단가", value=0.0)
-    
-    if st.button("📊 분석 실행"):
-        st.rerun()
-
 # --- [메인 화면 분석 로직 시작] ---
 # 모든 버튼과 검색창의 결과는 결국 이 한 줄로 모입니다.
 ticker = st.session_state['search']
