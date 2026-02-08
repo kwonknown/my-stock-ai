@@ -80,7 +80,7 @@ def calculate_flexible_score(df, info):
 with st.sidebar:
     st.header("🚀 미래 산업 섹터")
     with st.expander("💻 AI 반도체 & 인프라", expanded=True):
-        c1, c2, c3, c4 = st.columns(2)
+        c1, c2, c3, c4 = st.columns(4)
         if c1.button("하이닉스"): st.session_state['search'] = "000660.KS"; st.rerun()
         if c1.button("엔비디아"): st.session_state['search'] = "NVDA"; st.rerun()
         if c2.button("삼성전자"): st.session_state['search'] = "005930.KS"; st.rerun()
@@ -91,7 +91,7 @@ with st.sidebar:
         if c4.button("휴림로"): st.session_state['search'] = "090710.KQ"; st.rerun()
     
     with st.expander("🧪 바이오 & 비만치료"):
-        c1, c2, c3 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
         if c1.button("파마리서치"): st.session_state['search'] = "214450.KQ"; st.rerun()
         if c1.button("일라이릴리"): st.session_state['search'] = "LLY"; st.rerun()
         if c2.button("노보노디스크"): st.session_state['search'] = "NVO"; st.rerun()
@@ -100,7 +100,7 @@ with st.sidebar:
         if c3.button("바이킹(VKTX)"): st.session_state['search'] = "VKTX"; st.rerun()
 
     with st.expander("🚗 미래차 & 모빌리티"):
-        c1, c2, c3 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
         if c1.button("테슬라"): st.session_state['search'] = "TSLA"; st.rerun()
         if c1.button("현대차"): st.session_state['search'] = "005380.KS"; st.rerun()
         if c2.button("기아"): st.session_state['search'] = "000270.KS"; st.rerun()
@@ -109,7 +109,7 @@ with st.sidebar:
         if c3.button("우버"): st.session_state['search'] = "UBER"; st.rerun()
 
     with st.expander("🛡️ 방산 & 로봇 & 우주"):
-        c1, c2, c3 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
         if c1.button("한화에어로"): st.session_state['search'] = "012450.KS"; st.rerun()
         if c1.button("레인보우로보"): st.session_state['search'] = "277810.KQ"; st.rerun()
         if c2.button("LIG넥스원"): st.session_state['search'] = "079550.KS"; st.rerun()
