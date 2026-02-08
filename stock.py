@@ -93,46 +93,64 @@ with st.sidebar:
         if c2.button("노보노디스크"): st.session_state['search'] = "NVO"; st.rerun()
         if c2.button("유한양행"): st.session_state['search'] = "000100.KS"; st.rerun()
 
+    with st.expander("🚗 미래차 & 모빌리티"):
+        c1, c2 = st.columns(2)
+        if c1.button("테슬라"): st.session_state['search'] = "TSLA"; st.rerun()
+        if c1.button("현대차"): st.session_state['search'] = "005380.KS"; st.rerun()
+        if c2.button("기아"): st.session_state['search'] = "000270.KS"; st.rerun()
+        if c2.button("리비안"): st.session_state['search'] = "RIVN"; st.rerun()
+
+    with st.expander("🛡️ 방산 & 로봇 & 우주"):
+        c1, c2 = st.columns(2)
+        if c1.button("한화에어로"): st.session_state['search'] = "012450.KS"; st.rerun()
+        if c1.button("레인보우로보"): st.session_state['search'] = "277810.KQ"; st.rerun()
+        if c2.button("LIG넥스원"): st.session_state['search'] = "079550.KS"; st.rerun()
+        if c2.button("아이온큐(IONQ)"): st.session_state['search'] = "IONQ"; st.rerun()
+    
     st.write("---")
-    if st.button("💎 승률 80%↑ 글로벌 보석 발굴"):
-                # [초강력 확장판] 글로벌 전수 조사 리스트 (약 70여 종목)
+    if st.button("💎 글로벌 정예 보석 발굴 (TOP 10)"):
         scan_list = [
-            # 1. 미국 빅테크 & AI 반도체 (The Mag 7 & Semi)
-            "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", 
-            "AVGO", "AMD", "MU", "INTC", "QCOM", "AMAT", "LRCX", "ARM", "SMCI", "ASML",
-            
-            # 2. 소프트웨어 & 성장주 (SaaS & AI Services)
-            "PLTR", "ADBE", "CRM", "NOW", "SNOW", "NET", "PANW", "IONQ", "SOUN",
-            
-            # 3. 비만치료제 & 헬스케어 (GLP-1 & Biotech)
-            "LLY", "NVO", "VRTX", "AMGN", "ISRG", "PFE", "MRK",
-            
-            # 4. 미국 인프라 & 소비재 (Infrastructure & Consumer)
-            "VRT", "COST", "NFLX", "WMT", "KO", "PEP", "XOM", "CAT", "GE", "UBER", "ABNB",
-            
-            # 5. 국내 반도체 & IT (K-Semicon & Tech)
-            "005930.KS", "000660.KS", "000990.KS", "042700.KQ", "035420.KS", "035720.KS",
-            
-            # 6. 국내 바이오 & 뷰티 (K-Bio & Aesthetic) - 파마리서치 등
-            "214450.KQ", "000100.KS", "068270.KS", "277470.KS", "090430.KS", "192080.KS",
-            
-            # 7. 국내 방산 & 자동차 & 로봇 (K-Defense, Auto & Robot)
-            "012450.KS", "064350.KS", "005380.KS", "000270.KS", "277810.KQ", "090710.KQ", "040910.KQ",
-            
-            # 8. 국내 자원 & 금융 (K-Resource & Finance)
-            "005490.KS", "010130.KS", "055550.KS", "105560.KS", "000720.KS"
+            "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "AVGO", "AMD", "MU", 
+            "INTC", "QCOM", "AMAT", "LRCX", "ARM", "SMCI", "ASML", "PLTR", "ADBE", "CRM", 
+            "NOW", "SNOW", "NET", "PANW", "IONQ", "SOUN", "LLY", "NVO", "VRTX", "AMGN", 
+            "ISRG", "PFE", "MRK", "VRT", "COST", "NFLX", "WMT", "KO", "PEP", "XOM", 
+            "CAT", "GE", "UBER", "ABNB", "005930.KS", "000660.KS", "000990.KS", "042700.KQ", 
+            "035420.KS", "035720.KS", "214450.KQ", "000100.KS", "068270.KS", "277470.KS", 
+            "090430.KS", "192080.KS", "012450.KS", "064350.KS", "005380.KS", "000270.KS", 
+            "277810.KQ", "090710.KQ", "040910.KQ", "005490.KS", "010130.KS", "055550.KS", 
+            "105560.KS", "000720.KS"
         ]
 
-        with st.spinner('전수 조사 중...'):
+        with st.spinner('전 세계 시장에서 보석 찾는 중...'):
+            # 한꺼번에 다운로드하여 속도 향상
             all_d = yf.download(scan_list, period="1mo", interval="1d", group_by='ticker', threads=True)
+            
+            found_stocks = []
             for t in scan_list:
                 try:
+                    # 데이터 정리 및 지표 계산
                     d = calculate_indicators(all_d[t].dropna())
-                    score, _ = calculate_flexible_score(d, {})
-                    if score >= 80:
-                        if st.button(f"🎯 {t} ({score}%)", key=f"sc_{t}"):
-                            st.session_state['search'] = t; st.rerun()
+                    if not d.empty:
+                        score, _ = calculate_flexible_score(d, {})
+                        if score >= 80:
+                            found_stocks.append({'ticker': t, 'score': score})
                 except: continue
+            
+            # [핵심] 승률 높은 순으로 정렬 후 상위 10개만 추출
+            top_10 = sorted(found_stocks, key=lambda x: x['score'], reverse=True)[:10]
+            
+            st.write("---")
+            if top_10:
+                st.subheader("🎯 오늘의 정예 보석 (TOP 10)")
+                for item in top_10:
+                    t_code = item['ticker']
+                    t_score = item['score']
+                    # 클릭 시 해당 종목으로 바로 이동하는 버튼
+                    if st.button(f"🚀 {t_code} (승률: {t_score}%)", key=f"top_{t_code}"):
+                        st.session_state['search'] = t_code
+                        st.rerun()
+            else:
+                st.info("현재 승률 80% 이상의 종목이 없습니다. 관망을 권장합니다.")
 
     st.write("---")
     if st.session_state['history']:
