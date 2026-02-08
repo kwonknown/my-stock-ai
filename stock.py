@@ -145,23 +145,23 @@ with st.sidebar:
                             else: us_stocks.append(data)
                 except: continue
             
-            # [핵심] 각각 상위 5개씩 추출하여 10개 구성
-            top_kr = sorted(kr_stocks, key=lambda x: x['score'], reverse=True)[:5]
-            top_us = sorted(us_stocks, key=lambda x: x['score'], reverse=True)[:5]
-            final_top_10 = top_kr + top_us
+            # [핵심] 정렬 및 출력 로직
+            final_top_10 = sorted(kr_stocks, key=lambda x: x['score'], reverse=True)[:5] + \
+                           sorted(us_stocks, key=lambda x: x['score'], reverse=True)[:5]
             
             st.write("---")
             if final_top_10:
-                st.subheader("🎯 오늘의 정예 보석 (국내 5 + 해외 5)")
-                # 2열로 배치하여 가독성 향상
-                cols = st.columns(2)
-                for idx, item in enumerate(final_top_10):
-                    with cols[idx % 2]:
-                        if st.button(f"🚀 {item['ticker']} ({item['score']}%)", key=f"top_{item['ticker']}"):
-                            st.session_state['search'] = item['ticker']
-                            st.rerun()
+                st.subheader("🎯 오늘의 정예 보석 (TOP 10)")
+                for item in final_top_10:
+                    t_code = item['ticker']
+                    t_score = item['score']
+                    
+                    # 버튼 클릭 시 세션 상태를 변경하고 즉시 앱을 재실행합니다.
+                    if st.button(f"🚀 {t_code} ({t_score}%)", key=f"top_btn_{t_code}", use_container_width=True):
+                        st.session_state['search'] = t_code
+                        st.rerun() # 이 명령어가 화면을 즉시 분석창으로 전환시킵니다.
             else:
-                st.info("조건에 맞는 보석이 없습니다. 시장이 냉각기일 수 있습니다.")
+                st.info("조건에 맞는 보석이 아직 없습니다.")
 
     st.write("---")
     if st.session_state['history']:
