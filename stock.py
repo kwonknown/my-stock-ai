@@ -176,12 +176,72 @@ if ticker:
 
         col_l, col_r = st.columns([2, 1])
         with col_l:
-            fig = go.Figure(data=[go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'])])
-            fig.add_trace(go.Scatter(x=data.index, y=data['VWAP'], line=dict(color='purple', dash='dot'), name='세력평단'))
-            fig.add_trace(go.Scatter(x=data.index, y=data['MA20'], line=dict(color='orange'), name='20일선'))
-            if my_p > 0: fig.add_hline(y=my_p, line_dash="solid", line_color="green", annotation_text="내 평단")
-            fig.update_layout(height=500, xaxis_rangeslider_visible=False, margin=dict(l=0,r=0,t=10,b=0))
-            st.plotly_chart(fig, use_container_width=True)
+            # 1. 차트 기본 객체 생성
+            fig = go.Figure()
+
+            # [주가 캔들스틱] - 시인성 개선
+            fig.add_trace(go.Candlestick(
+                x=data.index,
+                open=data['Open'], high=data['High'],
+                low=data['Low'], close=data['Close'],
+                name='주가',
+                increasing_line_color='#FF4B4B', # 한국식 빨간색 양봉
+                decreasing_line_color='#0077FF'  # 한국식 파란색 음봉
+            ))
+
+            # [세력 평단(VWAP)] - 보라색 굵은 점선
+            fig.add_trace(go.Scatter(
+                x=data.index, y=data['VWAP'],
+                line=dict(color='#A020F0', width=2, dash='dot'),
+                name='세력평단(VWAP)'
+            ))
+
+            # [20일선] - 오렌지색 실선
+            fig.add_trace(go.Scatter(
+                x=data.index, y=data['MA20'],
+                line=dict(color='#FFA500', width=1.5),
+                name='20일선'
+            ))
+
+            # [거래량 차트] - 하단 보조 지표로 추가 (선택사항)
+            # 캔들스틱과 겹치지 않게 별도 레이아웃 설정이 가능합니다.
+
+            # [내 평단가] - 녹색 실선 (입력 시에만 노출)
+            if my_p > 0:
+                fig.add_hline(
+                    y=my_p, 
+                    line_dash="solid", 
+                    line_color="#00FF00", 
+                    line_width=2,
+                    annotation_text=f"내 평단: {my_p:,.0f}",
+                    annotation_position="top left"
+                )
+
+            # 2. 그래프 레이아웃 미세 조정 (디테일 핵심)
+            fig.update_layout(
+                height=600, # 그래프 높이 확장
+                xaxis_rangeslider_visible=False, # 하단 슬라이더 제거하여 공간 확보
+                margin=dict(l=0, r=10, t=10, b=0),
+                paper_bgcolor='rgba(0,0,0,0)', # 배경 투명화로 앱과 조화
+                plot_bgcolor='rgba(0,0,0,0)',
+                hovermode="x unified", # 마우스 오버 시 해당 시점 모든 지표 합산 노출
+                legend=dict(
+                    orientation="h", 
+                    yanchor="bottom", y=1.02, 
+                    xanchor="right", x=1
+                ),
+                yaxis=dict(
+                    gridcolor='rgba(128, 128, 128, 0.2)', # 그리드선 투명도 조절
+                    side="right" # 가격표를 오른쪽으로 배치 (트레이딩뷰 스타일)
+                ),
+                xaxis=dict(
+                    gridcolor='rgba(128, 128, 128, 0.2)',
+                    type='category' # 주말/휴장일 공백 제거 (차트 연결성 강화)
+                )
+            )
+
+            # 3. 차트 출력
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
             
         with col_r:
             st.subheader("🔍 지속 가능성 진단")
