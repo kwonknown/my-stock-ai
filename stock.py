@@ -80,7 +80,7 @@ def calculate_flexible_score(df, info):
 with st.sidebar:
     st.header("🚀 미래 산업 섹터")
     with st.expander("💻 AI 반도체 & 인프라", expanded=True):
-        c1, c2, c3 = st.columns(2)
+        c1, c2, c3, c4 = st.columns(2)
         if c1.button("하이닉스"): st.session_state['search'] = "000660.KS"; st.rerun()
         if c1.button("엔비디아"): st.session_state['search'] = "NVDA"; st.rerun()
         if c2.button("삼성전자"): st.session_state['search'] = "005930.KS"; st.rerun()
