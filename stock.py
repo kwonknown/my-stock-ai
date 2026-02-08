@@ -117,9 +117,11 @@ with st.sidebar:
         if c2.button("현대로템"): st.session_state['search'] = "064350.KS"; st.rerun()
         if c2.button("두산로보"): st.session_state['search'] = "454910.KS"; st.rerun()
     
-    st.write("---")
+    # 1. 발굴된 리스트를 저장할 세션 상태 초기화
+    if 'top_10_list' not in st.session_state:
+        st.session_state['top_10_list'] = []
+
     if st.button("💎 국내/외 정예 보석 TOP 10 발굴"):
-        # 전체 리스트 (섹터 확장형)
         scan_list = [
             "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "AVGO", "AMD", "MU", 
             "PLTR", "LLY", "NVO", "VRT", "005930.KS", "000660.KS", "000990.KS", "042700.KQ", 
@@ -128,11 +130,9 @@ with st.sidebar:
             "277810.KQ", "079550.KS", "055550.KS", "105560.KS", "000720.KS"
         ]
 
-        with st.spinner('국내/외 시장 통합 스캔 중...'):
+        with st.spinner('보석 발굴 중...'):
             all_d = yf.download(scan_list, period="1mo", interval="1d", group_by='ticker', threads=True)
-            
-            kr_stocks = []
-            us_stocks = []
+            kr_stocks, us_stocks = [], []
             
             for t in scan_list:
                 try:
@@ -140,28 +140,26 @@ with st.sidebar:
                     if not d.empty:
                         score, _ = calculate_flexible_score(d, {})
                         if score >= 80:
-                            data = {'ticker': t, 'score': score}
-                            if ".KS" in t or ".KQ" in t: kr_stocks.append(data)
-                            else: us_stocks.append(data)
+                            item = {'ticker': t, 'score': score}
+                            if ".KS" in t or ".KQ" in t: kr_stocks.append(item)
+                            else: us_stocks.append(item)
                 except: continue
             
-            # [핵심] 정렬 및 출력 로직
-            final_top_10 = sorted(kr_stocks, key=lambda x: x['score'], reverse=True)[:5] + \
-                           sorted(us_stocks, key=lambda x: x['score'], reverse=True)[:5]
-            
-            st.write("---")
-            if final_top_10:
-                st.subheader("🎯 오늘의 정예 보석 (TOP 10)")
-                for item in final_top_10:
-                    t_code = item['ticker']
-                    t_score = item['score']
-                    
-                    # 버튼 클릭 시 세션 상태를 변경하고 즉시 앱을 재실행합니다.
-                    if st.button(f"🚀 {t_code} ({t_score}%)", key=f"top_btn_{t_code}", use_container_width=True):
-                        st.session_state['search'] = t_code
-                        st.rerun() # 이 명령어가 화면을 즉시 분석창으로 전환시킵니다.
-            else:
-                st.info("조건에 맞는 보석이 아직 없습니다.")
+            # 상위 5개씩 추출하여 세션 상태에 저장 (영구 보존)
+            st.session_state['top_10_list'] = sorted(kr_stocks, key=lambda x: x['score'], reverse=True)[:5] + \
+                                             sorted(us_stocks, key=lambda x: x['score'], reverse=True)[:5]
+
+    # 2. 저장된 리스트 출력 (클릭 시 사라지지 않음)
+    if st.session_state['top_10_list']:
+        st.write("---")
+        st.subheader("🎯 오늘의 정예 보석 (TOP 10)")
+        for item in st.session_state['top_10_list']:
+            t_code = item['ticker']
+            t_score = item['score']
+            # 버튼 클릭 시 즉시 검색어로 설정하고 앱 재실행
+            if st.button(f"🚀 {t_code} ({t_score}%)", key=f"fixed_top_{t_code}", use_container_width=True):
+                st.session_state['search'] = t_code
+                st.rerun() # 이 명령어가 즉시 분석 화면으로 전환시킵니다.
 
     st.write("---")
     if st.session_state['history']:
