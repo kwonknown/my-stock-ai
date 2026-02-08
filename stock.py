@@ -171,10 +171,24 @@ with st.sidebar:
                 st.session_state['search'] = h; st.rerun()
 
     st.write("---")
-    search_q = st.text_input("종목명/티커 입력", value=st.session_state['search'])
+    # [해결책] 검색창의 value를 세션 상태와 직접 연결합니다.
+    search_q = st.text_input("종목명/티커 입력", 
+                             value=st.session_state['search'], 
+                             key="ticker_input_field")
+
+    # 검색창에 직접 입력했을 때도 세션 상태를 업데이트합니다.
+    if search_q != st.session_state['search']:
+        st.session_state['search'] = search_q
+        st.rerun()
+
     my_p = st.number_input("나의 평단가", value=0.0)
+    
     if st.button("📊 분석 실행"):
-        st.session_state['search'] = search_q; st.rerun()
+        # 이미 위에서 업데이트되지만, 명시적으로 한 번 더 실행합니다.
+        st.rerun()
+
+# --- 메인 화면 로직 시작 ---
+ticker = st.session_state['search'] # 항상 세션 상태의 최신 티커를 사용합니다.
 
 # --- 메인 화면 ---
 ticker = st.session_state['search']
