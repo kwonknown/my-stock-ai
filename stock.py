@@ -116,7 +116,8 @@ with st.sidebar:
         if c2.button("아이온큐(IONQ)"): st.session_state['search'] = "IONQ"; st.rerun()
         if c2.button("현대로템"): st.session_state['search'] = "064350.KS"; st.rerun()
         if c2.button("두산로보"): st.session_state['search'] = "454910.KS"; st.rerun()
-    
+
+    st.write("---")
     # 1. 발굴된 리스트를 저장할 세션 상태 초기화
     if 'top_10_list' not in st.session_state:
         st.session_state['top_10_list'] = []
@@ -151,7 +152,6 @@ with st.sidebar:
 
     # 2. 저장된 리스트 출력 (클릭 시 사라지지 않음)
     if st.session_state['top_10_list']:
-        st.write("---")
         st.subheader("🎯 오늘의 정예 보석 (TOP 10)")
         for item in st.session_state['top_10_list']:
             t_code = item['ticker']
